@@ -1,4 +1,4 @@
-# Automatisations n8n — Cas pratique SA Brunet
+# Automatisations n8n - Cas pratique SA Brunet
 
 Deux automatisations construites sur **n8n** pour répondre à un cas pratique : réduire la saisie manuelle des factures fournisseurs et automatiser les relances clients d'une PME industrielle agroalimentaire (ERP de type Odoo).
 
@@ -40,7 +40,7 @@ Le workflow a donc trois issues possibles, toutes tracées dans un journal d'aud
 
 Note sur le nœud Odoo : il est présent dans le flux et c'est lui qui crée l'écriture, mais il est laissé sans identifiant de connexion (pas de credential Odoo de test). Les seuils et la liste des doublons sont simulés dans le code et commentés pour pointer où brancher une vraie requête ERP en production.
 
-## Workflow 2 — Relance client
+## Workflow 2 - Relance client
 
 Objectif : relancer les factures impayées tous les matins, avec un ton qui s'adapte au retard, et passer la main à un humain quand le dossier devient sensible.
 
