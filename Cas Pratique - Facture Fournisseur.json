@@ -1,0 +1,1024 @@
+{
+  "name": "Cas Pratique - Facture Fournisseur",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "anthropic/claude-haiku-4.5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        224,
+        160
+      ],
+      "id": "552ba448-535c-4f08-b70a-22becc9c0742",
+      "name": "Claude Haiku 4.5",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "={{ (Object.keys($binary || {}).find(k => ((($binary[k]||{}).mimeType)||'').toLowerCase().includes('pdf') || ((($binary[k]||{}).fileName)||'').toLowerCase().endsWith('.pdf'))) || Object.keys($binary || {})[0] || 'attachment_0' }}",
+        "options": {
+          "keepSource": "both"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        0
+      ],
+      "id": "2a2ed863-ddf5-47a8-9b1f-ce490316948e",
+      "name": "Extraction PDF",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "custom",
+        "operation": "create",
+        "customResource": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "fieldsToSend": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "e5d3383b-0a54-41c7-b9d8-77548f042c32",
+      "name": "Créer facture - Odoo",
+      "type": "n8n-nodes-base.odoo",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        -16
+      ],
+      "notes": "À CONFIGURER : sélectionner le credential Odoo, puis le modèle (ex. account.move pour une facture fournisseur) et mapper les champs depuis l'item entrant (fournisseur, numero_facture, montants, categorie...). Laissé vide volontairement (pas de credential)."
+    },
+    {
+      "parameters": {
+        "format": "resolved",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]"
+        }
+      },
+      "name": "Réception Mail (Factures)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        0
+      ],
+      "id": "921b38c5-4622-4603-ba74-34ad0c644ba7"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tu es un assistant comptable specialise dans les factures fournisseurs d'une PME industrielle francaise (SA Brunet).\nA partir du TEXTE BRUT de la facture ci-dessous, extrais les donnees dans le format demande.\n\nRegles:\n- Montants en nombre decimal, point comme separateur (ex: 4200.00), sans symbole ni espace.\n- Dates au format JJ-MM-AAAA.\n- Devise par defaut EUR si non precisee.\n- Categorise dans: verre, viande, energie, transport, maintenance, autre.\n- Si une information est absente ou illisible, mets null et ajoute le nom du champ dans \"champs_manquants\". N'invente jamais une valeur.\n- \"confiance\" entre 0 et 1 = ta certitude globale d'extraction.\n- N'effectue AUCUN calcul de correction: recopie les montants tels qu'ecrits, meme s'ils semblent incoherents (le controle de coherence est fait apres).\n- Reponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour et sans balises markdown.\n\nReponds STRICTEMENT avec cet objet JSON (memes cles):\n{\"fournisseur\": \"\", \"siren\": null, \"numero_facture\": \"\", \"date_facture\": \"JJ-MM-AAAA\", \"devise\": \"EUR\", \"montant_ht\": 0, \"montant_tva\": 0, \"total_ttc\": 0, \"taux_tva_pct\": 0, \"categorie\": \"autre\", \"lignes\": [{\"description\": \"\", \"quantite\": null, \"pu_ht\": null, \"montant_ht\": 0}], \"champs_manquants\": [], \"confiance\": 0}\n\nTEXTE DE LA FACTURE:\n{{ $json.text }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        224,
+        0
+      ],
+      "id": "8206bb5e-07b8-423e-b4e6-149d9c3cf869",
+      "name": "Extraction des Données",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.bloquant }}",
+              "value2": "={{ false }}"
+            }
+          ]
+        }
+      },
+      "name": "Alerte ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        704,
+        0
+      ],
+      "id": "c90349fa-0db4-46dd-a56b-61e16a60cb92"
+    },
+    {
+      "parameters": {
+        "fromEmail": "compta-demo@example.com",
+        "toEmail": "validation-demo@example.com",
+        "subject": "=⚠️ Correction facture {{ $json.numero_facture || '(n° manquant)' }} - {{ $json.alertes && $json.alertes.length ? $json.alertes[0] : 'anomalie détectée' }}",
+        "html": "=<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"background:#b91c1c;color:#ffffff;padding:16px 20px\"><h2 style=\"margin:0;font-size:18px\">⚠️ Facture fournisseur à traiter</h2><p style=\"margin:4px 0 0;font-size:13px;opacity:0.9\">SA Brunet — saisie comptable assistée par IA</p></div><div style=\"padding:20px;color:#111827;font-size:14px;line-height:1.5\"><p>L'extraction IA a détecté des anomalies <strong>bloquantes</strong> sur cette facture. Sur la console, vous pourrez soit <strong>corriger vous-même</strong> les informations, soit <strong>renvoyer la facture au fournisseur</strong> pour qu'il corrige.</p><table style=\"width:100%;border-collapse:collapse;margin:12px 0\"><tr><td style=\"padding:4px 0;color:#6b7280\">Fournisseur</td><td style=\"padding:4px 0;font-weight:bold\">{{ $json.fournisseur || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">N° facture</td><td style=\"padding:4px 0;font-weight:bold\">{{ $json.numero_facture || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Date</td><td style=\"padding:4px 0\">{{ $json.date || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Montant TTC</td><td style=\"padding:4px 0\">{{ $json.montant_ttc != null ? $json.montant_ttc + ' ' + ($json.devise || 'EUR') : '—' }}</td></tr></table><p style=\"margin:0 0 6px;font-weight:bold;color:#b91c1c\">Anomalies détectées :</p><ul style=\"margin:0 0 16px;padding-left:20px\">{{ ($json.alertes && $json.alertes.length ? $json.alertes : ['Erreur détectée']).map(a => '<li>' + a + '</li>').join('') }}</ul><a href=\"{{ $execution.resumeFormUrl }}\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold\">Traiter la facture →</a><p style=\"margin:16px 0 0;font-size:12px;color:#6b7280\">Ce lien ouvre la console n8n : vous y choisissez de corriger vous-même ou de renvoyer au fournisseur. Le traitement reste en pause jusqu'à votre action (max 48h).</p><p style=\"margin:8px 0 0;font-size:11px;color:#9ca3af\">RGPD — données traitées pour la saisie comptable interne (SA Brunet), accès restreint au service comptabilité.</p></div></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        240
+      ],
+      "id": "77296f0b-e4db-46b9-b64d-39643503685c",
+      "name": "Mail pour Correction",
+      "webhookId": "e9a897f1-7ea0-4b48-8e8d-b5dfd7052c46"
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Console de correction - Facture bloquée",
+        "formDescription": "Choisissez d'abord l'action en haut du formulaire. • « Corriger moi-même » : vérifiez/ajustez les champs puis validez. • « Renvoyer au fournisseur » : validez simplement, un e-mail sera envoyé automatiquement au fournisseur avec les anomalies détectées.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action souhaitée",
+              "fieldType": "radio",
+              "defaultValue": "Corriger moi-même les informations",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Corriger moi-même les informations"
+                  },
+                  {
+                    "option": "Renvoyer au fournisseur pour correction"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Fournisseur",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.fournisseur }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "N° de facture",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.numero_facture }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Date de facture (JJ-MM-AAAA)",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.date }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Devise",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.devise }}"
+            },
+            {
+              "fieldLabel": "Montant HT (€)",
+              "fieldType": "number",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.montant_ht }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Montant TVA (€)",
+              "fieldType": "number",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.montant_tva }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Montant TTC (€)",
+              "fieldType": "number",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.montant_ttc }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Catégorie",
+              "fieldType": "dropdown",
+              "defaultValue": "={{ $('Nettoyage & Controle').item.json.categorie }}",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "verre"
+                  },
+                  {
+                    "option": "viande"
+                  },
+                  {
+                    "option": "energie"
+                  },
+                  {
+                    "option": "transport"
+                  },
+                  {
+                    "option": "maintenance"
+                  },
+                  {
+                    "option": "autre"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Commentaire (optionnel)",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "limitWaitTime": true,
+        "resumeAmount": 48,
+        "options": {
+          "appendAttribution": false,
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Merci, la correction a été enregistrée. Le traitement de la facture reprend automatiquement."
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        240
+      ],
+      "id": "49fba68d-820d-49e8-926b-1b858bc609ed",
+      "name": "Attente de Réponse",
+      "webhookId": "c8b182ce-e9a3-4903-bbbf-f9437f5d9802"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-soumis-1",
+              "leftValue": "={{ $json[\"Fournisseur\"] }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "21d3bc2c-057a-48cc-9861-fce7eb52aeb4",
+      "name": "Modification Soumis ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        240
+      ],
+      "notes": "Distingue une vraie soumission du formulaire (champ Fournisseur rempli) d'un simple dépassement du délai 48h. Garde-fou : seul une soumission autorise l'écriture Odoo."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aucune correction reçue dans les 48h.\n// GARDE-FOU CENTRAL : aucune écriture comptable sans validation humaine.\nlet src = {};\ntry { src = $('Nettoyage & Controle').item.json; } catch (e) { src = $json; }\n\nreturn [{\n  json: {\n    fournisseur: src.fournisseur || '',\n    numero_facture: src.numero_facture || '',\n    montant_ttc: (src.montant_ttc !== undefined ? src.montant_ttc : null),\n    ecrit_dans_odoo: false,\n    journal: {\n      decision: 'AUCUNE_ECRITURE',\n      statut: 'delai_correction_depasse_48h',\n      horodatage: new Date().toISOString(),\n      motif: \"Aucune validation humaine reçue dans les 48h — facture NON enregistrée dans Odoo.\",\n      rgpd: \"Trace de decision conservee (non-ecriture). Acces restreint au service comptabilite, SA Brunet.\"\n    }\n  }\n}];"
+      },
+      "id": "972c512e-1497-4f9b-bf84-08c0a03127b1",
+      "name": "Journal - Non écrit (délai 48h)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        464
+      ],
+      "notes": "Délai de 48h dépassé sans correction humaine. Garde-fou central : aucune écriture Odoo. Trace la décision de non-écriture (RGPD)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// CONFIGURATION DES GARDE-FOUS (modifiables facilement)\n// ============================================================\n\n// Seuil au-delà duquel une validation renforcée est requise (en euros)\nconst SEUIL_MONTANT_ELEVE = 10000;\n\n// Tolérance d'arrondi acceptée sur le contrôle de cohérence des montants (en euros)\nconst TOLERANCE_ARRONDI = 0.02;\n\n// Seuil de confiance d'extraction minimum acceptable\nconst SEUIL_CONFIANCE_MIN = 0.6;\n\n// Liste simulée des numéros de factures déjà comptabilisées dans l'ERP\n// En production : remplacer par une requête à l'ERP (Odoo)\nconst FACTURES_DEJA_COMPTABILISEES = [\n  'FAC-2024-0892',\n  'FAC-2024-0915',\n  'VRR-2025-0123',\n  'EDF-2025-00456',\n  'TRP-2025-7821'\n];\n\n// ============================================================\n// FONCTION 1 : Extraction et nettoyage de la réponse du LLM\n// Gère : objet direct, objet imbriqué (output/text/response), texte brut + markdown\n// ============================================================\nfunction extractJson(rawResponse) {\n  // Cas 1 : déjà un objet JavaScript\n  if (rawResponse && typeof rawResponse === 'object') {\n    // Wrapper {\"output\": ...}\n    if (rawResponse.output !== undefined) {\n      return extractJson(rawResponse.output);\n    }\n    // Wrapper {\"text\": ...}\n    if (rawResponse.text !== undefined && typeof rawResponse.text === 'string') {\n      return extractJson(rawResponse.text);\n    }\n    // Wrapper {\"response\": ...}\n    if (rawResponse.response !== undefined && typeof rawResponse.response === 'string') {\n      return extractJson(rawResponse.response);\n    }\n    // Objet directement exploitable\n    return rawResponse;\n  }\n\n  // Cas 2 : chaîne de caractères\n  if (typeof rawResponse === 'string') {\n    let cleaned = rawResponse.trim();\n\n    // Retirer les balises markdown ```json ... ``` ou ``` ... ```\n    cleaned = cleaned.replace(/^```(?:json)?\\s*/i, '');\n    cleaned = cleaned.replace(/\\s*```\\s*$/i, '');\n    cleaned = cleaned.trim();\n\n    // Tentative de parsing direct\n    try {\n      const parsed = JSON.parse(cleaned);\n      if (parsed && typeof parsed === 'object' && parsed.output !== undefined) {\n        return extractJson(parsed.output);\n      }\n      return parsed;\n    } catch (e) {\n      // Repli : extraire le premier bloc { ... } présent dans le texte\n      const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n      if (match) {\n        try {\n          return JSON.parse(match[0]);\n        } catch (e2) {\n          // Échec du repli\n        }\n      }\n    }\n  }\n\n  // Aucun parsing possible : objet vide pour ne pas casser la suite\n  return {};\n}\n\n// ============================================================\n// FONCTION 2 : Lecture sécurisée d'un montant monétaire\n// Convertit nombre / texte (espaces, virgule décimale, symboles) en décimal propre\n// Retourne null si conversion impossible\n// ============================================================\nfunction parseAmount(value) {\n  if (value === null || value === undefined || value === '') {\n    return null;\n  }\n\n  if (typeof value === 'number') {\n    return isNaN(value) ? null : value;\n  }\n\n  if (typeof value === 'string') {\n    let cleaned = value.trim();\n\n    // Retirer symboles monétaires, espaces normaux et insécables\n    cleaned = cleaned.replace(/[€$£¥\\s\\u00A0]/g, '');\n    // Retirer apostrophes utilisées comme séparateur de milliers\n    cleaned = cleaned.replace(/'/g, '');\n\n    // Format français : si \".\" et \",\" présents, \".\" = milliers et \",\" = décimale\n    if (cleaned.includes(',') && cleaned.includes('.')) {\n      cleaned = cleaned.replace(/\\./g, '').replace(',', '.');\n    } else if (cleaned.includes(',')) {\n      cleaned = cleaned.replace(',', '.');\n    }\n\n    // Retirer tout caractère restant non numérique sauf \".\" et \"-\"\n    cleaned = cleaned.replace(/[^0-9.\\-]/g, '');\n\n    if (cleaned === '' || cleaned === '-' || cleaned === '.') {\n      return null;\n    }\n\n    const num = parseFloat(cleaned);\n    return isNaN(num) ? null : num;\n  }\n\n  return null;\n}\n\n// ============================================================\n// FONCTION 3 : Normalisation des clés et recherche tolérante\n// Cherche une valeur dans l'objet en testant plusieurs alias possibles\n// Insensible à la casse, aux accents, aux tirets/underscores/espaces\n// ============================================================\nfunction normalizeKey(key) {\n  return String(key)\n    .toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '') // retirer accents\n    .replace(/[\\s\\-_]/g, ''); // retirer espaces, tirets, underscores\n}\n\nfunction buildNormalizedMap(obj) {\n  const map = {};\n  if (!obj || typeof obj !== 'object') return map;\n  for (const k of Object.keys(obj)) {\n    map[normalizeKey(k)] = obj[k];\n  }\n  return map;\n}\n\nfunction findField(normalizedMap, aliases) {\n  for (const alias of aliases) {\n    const key = normalizeKey(alias);\n    if (normalizedMap[key] !== undefined && normalizedMap[key] !== null && normalizedMap[key] !== '') {\n      return normalizedMap[key];\n    }\n  }\n  return undefined;\n}\n\n// ============================================================\n// RÉCUPÉRATION ET NETTOYAGE DE LA RÉPONSE LLM\n// ============================================================\nconst llmRaw = $input.first().json;\nconst factureBrute = extractJson(llmRaw);\nconst facture = buildNormalizedMap(factureBrute);\n\n// ============================================================\n// EXTRACTION TOLÉRANTE DES CHAMPS (multi-alias)\n// ============================================================\n\n// Fournisseur : fournisseur, supplier, vendor, emetteur, raison_sociale, nom_fournisseur...\nconst fournisseur = (findField(facture, [\n  'fournisseur', 'supplier', 'vendor', 'emetteur', 'raison_sociale',\n  'nom_fournisseur', 'societe', 'company', 'nom'\n]) || '').toString().trim();\n\n// SIREN / identifiant entreprise\nconst siren = (findField(facture, [\n  'siren', 'siret', 'identifiant', 'tax_id', 'vat_number', 'tva_intra'\n]) || '').toString().trim();\n\n// Numéro de facture\nconst numeroFacture = (findField(facture, [\n  'numero_facture', 'numero', 'num_facture', 'no_facture', 'n_facture',\n  'invoice_number', 'invoice_no', 'invoice_id', 'reference', 'ref'\n]) || '').toString().trim();\n\n// Date de facture\nconst dateFacture = (findField(facture, [\n  'date', 'date_facture', 'date_emission', 'invoice_date',\n  'issue_date', 'date_invoice'\n]) || '').toString().trim();\n\n// Devise\nconst deviseRaw = findField(facture, ['devise', 'currency', 'monnaie']);\nconst devise = (deviseRaw || 'EUR').toString().trim();\n\n// Catégorie de dépense\nconst categorie = (findField(facture, [\n  'categorie', 'category', 'type', 'type_depense', 'nature'\n]) || '').toString().trim();\n\n// Confiance d'extraction (renommée)\nconst confianceRaw = findField(facture, [\n  'confiance', 'confidence', 'score', 'score_confiance', 'confidence_score'\n]);\nconst confiance = typeof confianceRaw === 'number'\n  ? confianceRaw\n  : parseAmount(confianceRaw);\n\n// Montants : HT / TVA / TTC avec tous les alias usuels\nconst montantHT = parseAmount(findField(facture, [\n  'montant_ht', 'ht', 'total_ht', 'sous_total', 'subtotal',\n  'amount_ht', 'net_amount', 'amount_excl_tax', 'prix_ht'\n]));\n\nconst montantTVA = parseAmount(findField(facture, [\n  'montant_tva', 'tva', 'total_tva', 'taxe', 'taxes',\n  'vat', 'vat_amount', 'tax', 'tax_amount'\n]));\n\nconst montantTTC = parseAmount(findField(facture, [\n  'montant_ttc', 'ttc', 'total_ttc', 'total', 'montant_total',\n  'amount_ttc', 'amount_incl_tax', 'grand_total', 'total_amount',\n  'net_a_payer', 'a_payer', 'prix_ttc'\n]));\n\n// ============================================================\n// GARDE-FOUS : initialisation\n// ============================================================\nconst alertes = [];\nconst champsManquants = [];\n\nlet coherenceMontantsOk = true;\nlet champsObligatoiresOk = true;\nlet doublonOk = true;\nlet montantEleveOk = true;\nlet confianceOk = true;\n\n// ------------------------------------------------------------\n// GARDE-FOU 1 : Cohérence des montants (TTC = HT + TVA)\n// ------------------------------------------------------------\nif (montantHT === null || montantTVA === null || montantTTC === null) {\n  coherenceMontantsOk = false;\n  alertes.push(\n    `Vérification de cohérence impossible : montant(s) manquant(s) ` +\n    `[HT=${montantHT}, TVA=${montantTVA}, TTC=${montantTTC}]`\n  );\n} else {\n  const sommeCalculee = montantHT + montantTVA;\n  const ecart = Math.abs(montantTTC - sommeCalculee);\n  if (ecart > TOLERANCE_ARRONDI) {\n    coherenceMontantsOk = false;\n    alertes.push(\n      `Incohérence des montants : TTC=${montantTTC.toFixed(2)}€ ` +\n      `≠ HT (${montantHT.toFixed(2)}€) + TVA (${montantTVA.toFixed(2)}€) ` +\n      `= ${sommeCalculee.toFixed(2)}€ — écart de ${ecart.toFixed(2)}€ ` +\n      `(tolérance ${TOLERANCE_ARRONDI}€)`\n    );\n  }\n}\n\n// ------------------------------------------------------------\n// GARDE-FOU 2 : Champs obligatoires manquants\n// ------------------------------------------------------------\nif (!fournisseur) champsManquants.push('fournisseur');\nif (!numeroFacture) champsManquants.push('numero_facture');\nif (!dateFacture) champsManquants.push('date');\nif (montantTTC === null) champsManquants.push('montant_ttc');\n\nif (champsManquants.length > 0) {\n  champsObligatoiresOk = false;\n  alertes.push(\n    `Champ(s) obligatoire(s) manquant(s) : ${champsManquants.join(', ')}`\n  );\n}\n\n// ------------------------------------------------------------\n// GARDE-FOU 3 : Doublon (numéro déjà comptabilisé)\n// ------------------------------------------------------------\nif (numeroFacture && FACTURES_DEJA_COMPTABILISEES.includes(numeroFacture)) {\n  doublonOk = false;\n  alertes.push(\n    `Doublon détecté : la facture ${numeroFacture} est déjà comptabilisée dans l'ERP`\n  );\n}\n\n// ------------------------------------------------------------\n// GARDE-FOU 4 : Montant élevé (non bloquant)\n// ------------------------------------------------------------\nif (montantTTC !== null && montantTTC > SEUIL_MONTANT_ELEVE) {\n  montantEleveOk = false;\n  alertes.push(\n    `Montant élevé : TTC ${montantTTC.toFixed(2)}€ supérieur au seuil de ${SEUIL_MONTANT_ELEVE}€ ` +\n    `— validation renforcée recommandée (non bloquant)`\n  );\n}\n\n// ------------------------------------------------------------\n// GARDE-FOU 5 : Confiance d'extraction faible\n// ------------------------------------------------------------\nif (confiance !== null && confiance !== undefined && confiance < SEUIL_CONFIANCE_MIN) {\n  confianceOk = false;\n  alertes.push(\n    `Confiance d'extraction faible : ${confiance} (seuil minimum ${SEUIL_CONFIANCE_MIN})`\n  );\n}\n\n// ============================================================\n// STATUT BLOQUANT\n// Bloque si : incohérence montants OU doublon OU champ obligatoire manquant\n// (Montant élevé et confiance faible = alertes non bloquantes)\n// ============================================================\nconst bloquant = !coherenceMontantsOk || !doublonOk || !champsObligatoiresOk;\n\n// ============================================================\n// SOURCE EMAIL (transmise en aval pour traçabilité)\n// ============================================================\nconst sourceEmail = findField(facture, ['source_email', 'email_source', 'expediteur', 'from'])\n  || $input.first().json.source_email\n  || '';\n\nconst texteFacture = findField(facture, ['texte_source', 'texte_facture', 'raw_text', 'contenu'])\n  || $input.first().json.texte_facture\n  || '';\n\n// ============================================================\n// RÉSULTAT FINAL\n// ============================================================\nreturn [{\n  json: {\n    // --- Données extraites de la facture ---\n    fournisseur: fournisseur,\n    siren: siren,\n    numero_facture: numeroFacture,\n    date: dateFacture,\n    devise: devise,\n    montant_ht: montantHT,\n    montant_tva: montantTVA,\n    montant_ttc: montantTTC,\n    categorie: categorie,\n\n    // --- Résultats des garde-fous ---\n    controles: {\n      coherence_montants_ok: coherenceMontantsOk,\n      champs_obligatoires_ok: champsObligatoiresOk,\n      doublon_ok: doublonOk,\n      montant_eleve_ok: montantEleveOk,\n      confiance_ok: confianceOk\n    },\n\n    // --- Synthèse des contrôles ---\n    alertes: alertes,\n    champs_manquants: champsManquants,\n    bloquant: bloquant,\n    confiance: confiance,\n\n    // --- Données source pour traçabilité ---\n    source_email: sourceEmail,\n    texte_facture: texteFacture\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        0
+      ],
+      "id": "0072f079-6ecc-4407-a89d-96213f40ac08",
+      "name": "Nettoyage & Controle"
+    },
+    {
+      "parameters": {
+        "fromEmail": "compta-demo@example.com",
+        "toEmail": "validation-demo@example.com",
+        "subject": "=🚨 Facture {{ $json.numero_facture || '(n° manquant)' }} NON corrigée sous 48h - traitement abandonné",
+        "html": "=<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"background:#374151;color:#ffffff;padding:16px 20px\"><h2 style=\"margin:0;font-size:18px\">🚨 Délai de correction dépassé (48h)</h2><p style=\"margin:4px 0 0;font-size:13px;opacity:0.9\">SA Brunet — saisie comptable assistée par IA</p></div><div style=\"padding:20px;color:#111827;font-size:14px;line-height:1.5\"><p>Aucune correction n'a été reçue dans le délai de <strong>48 heures</strong>. La facture ci-dessous <strong>n'a PAS été enregistrée dans Odoo</strong> et son traitement est désormais clôturé sans écriture comptable.</p><table style=\"width:100%;border-collapse:collapse;margin:12px 0\"><tr><td style=\"padding:4px 0;color:#6b7280\">Fournisseur</td><td style=\"padding:4px 0;font-weight:bold\">{{ $json.fournisseur || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">N° facture</td><td style=\"padding:4px 0;font-weight:bold\">{{ $json.numero_facture || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Date facture</td><td style=\"padding:4px 0\">{{ $('Nettoyage & Controle').item.json.date || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Montant TTC</td><td style=\"padding:4px 0\">{{ $json.montant_ttc != null ? $json.montant_ttc + ' ' + ($('Nettoyage & Controle').item.json.devise || 'EUR') : '—' }}</td></tr></table><p style=\"margin:0 0 6px;font-weight:bold;color:#374151\">Décision enregistrée :</p><ul style=\"margin:0 0 16px;padding-left:20px\"><li>Statut : {{ $json.journal && $json.journal.statut ? $json.journal.statut : 'delai_correction_depasse_48h' }}</li><li>Décision : {{ $json.journal && $json.journal.decision ? $json.journal.decision : 'AUCUNE_ECRITURE' }}</li><li>Horodatage : {{ $json.journal && $json.journal.horodatage ? $json.journal.horodatage : '—' }}</li></ul><p style=\"margin:0\">Si cette facture doit malgré tout être comptabilisée, merci de la retraiter manuellement dans Odoo.</p><p style=\"margin:16px 0 0;font-size:12px;color:#6b7280\">Action requise : traitement manuel éventuel de la facture hors automatisation.</p><p style=\"margin:8px 0 0;font-size:11px;color:#9ca3af\">RGPD — trace de non-écriture conservée pour la saisie comptable interne (SA Brunet), accès restreint au service comptabilité.</p></div></div>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ddbbf28f-2b02-4899-9177-0efdf6b1ec79",
+      "name": "Délai 48h Dépassé",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        464
+      ],
+      "webhookId": "9cd6d960-b35c-4511-a6c6-fba93acb3fc7",
+      "notes": "Notifie l'humain que la facture n'a PAS été corrigée dans les 48h et n'a pas été enregistrée dans Odoo. À CONFIGURER : sélectionner le credential SMTP (identique à 'Send an Email')."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enregistre la correction humaine + trace RGPD.\n// Normalise le record pour qu'il ait la MEME forme que la branche \"facture valide\"\n// afin d'alimenter un seul noeud Odoo en aval.\nconst f = $json;\n\nfunction num(v) {\n  if (v === null || v === undefined || v === '') return null;\n  const n = parseFloat(String(v).replace(/\\s/g, '').replace(',', '.').replace(/[^0-9.\\-]/g, ''));\n  return isNaN(n) ? null : n;\n}\n\nconst record = {\n  fournisseur: (f['Fournisseur'] || '').toString().trim(),\n  numero_facture: (f['N° de facture'] || '').toString().trim(),\n  date: (f['Date de facture (JJ-MM-AAAA)'] || '').toString().trim(),\n  devise: (f['Devise'] || 'EUR').toString().trim(),\n  montant_ht: num(f['Montant HT (€)']),\n  montant_tva: num(f['Montant TVA (€)']),\n  montant_ttc: num(f['Montant TTC (€)']),\n  categorie: (f['Catégorie'] || 'autre').toString().trim(),\n  commentaire: (f['Commentaire (optionnel)'] || '').toString().trim(),\n  source: 'correction_humaine',\n  ecrit_dans_odoo: true\n};\n\n// Journal / traçabilité RGPD\nrecord.journal = {\n  decision: 'ECRITURE_ODOO',\n  statut: 'corrigee_puis_validee',\n  horodatage: new Date().toISOString(),\n  valide_par: 'formulaire_correction_n8n',\n  rgpd: \"Donnees de facture traitees pour la saisie comptable interne (SA Brunet), base : interet legitime. Acces restreint au service comptabilite, conservation limitee a la duree legale.\"\n};\n\nreturn [{ json: record }];"
+      },
+      "id": "0caf586c-eab0-4d58-bf4a-819b35fac365",
+      "name": "Journal - Correction Validée",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        144
+      ],
+      "notes": "Enregistre la correction humaine, normalise le record (même forme que la branche valide) et horodate la décision avec mention RGPD."
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VOTRE_ID_DATATABLE",
+          "cachedResultName": "Journal_Factures"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "value": {
+            "decision": "={{ $json.journal.decision }}",
+            "statut": "={{ $json.journal.statut }}",
+            "fournisseur": "={{ $json.fournisseur }}",
+            "numero_facture": "={{ $json.numero_facture }}",
+            "montant_ttc": "={{ $json.montant_ttc }}",
+            "ecrit_dans_odoo": "={{ $json.ecrit_dans_odoo }}",
+            "source": "={{ $json.source }}",
+            "commentaire": "={{ $json.commentaire }}",
+            "horodatage": "={{ $json.journal.horodatage }}",
+            "rgpd": "={{ $json.journal.rgpd }}"
+          },
+          "schema": [
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fournisseur",
+              "displayName": "fournisseur",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_facture",
+              "displayName": "numero_facture",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "montant_ttc",
+              "displayName": "montant_ttc",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ecrit_dans_odoo",
+              "displayName": "ecrit_dans_odoo",
+              "type": "boolean",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "commentaire",
+              "displayName": "commentaire",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "horodatage",
+              "displayName": "horodatage",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rgpd",
+              "displayName": "rgpd",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2748a62f-0267-40cd-9927-83ab74e847a5",
+      "name": "Persistance Journal - Validée",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        144
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notes": "Persiste la décision d'écriture (facture corrigée et validée) dans la base n8n Journal_Factures (piste d'audit RGPD)."
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VOTRE_ID_DATATABLE",
+          "cachedResultName": "Journal_Factures"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "value": {
+            "decision": "={{ $json.journal.decision }}",
+            "statut": "={{ $json.journal.statut }}",
+            "fournisseur": "={{ $json.fournisseur }}",
+            "numero_facture": "={{ $json.numero_facture }}",
+            "montant_ttc": "={{ $json.montant_ttc }}",
+            "ecrit_dans_odoo": "={{ $json.ecrit_dans_odoo }}",
+            "source": "systeme_delai_48h",
+            "commentaire": "={{ $json.journal.motif }}",
+            "horodatage": "={{ $json.journal.horodatage }}",
+            "rgpd": "={{ $json.journal.rgpd }}"
+          },
+          "schema": [
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fournisseur",
+              "displayName": "fournisseur",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_facture",
+              "displayName": "numero_facture",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "montant_ttc",
+              "displayName": "montant_ttc",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ecrit_dans_odoo",
+              "displayName": "ecrit_dans_odoo",
+              "type": "boolean",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "commentaire",
+              "displayName": "commentaire",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "horodatage",
+              "displayName": "horodatage",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rgpd",
+              "displayName": "rgpd",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cb98e1d4-4d00-4a66-8858-604ebb509982",
+      "name": "Persistance Journal - Non écrit",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        464
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notes": "Persiste la décision de NON-écriture (délai 48h dépassé) dans la base n8n Journal_Factures. Branche parallèle : n'altère pas l'e-mail existant."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json['Action souhaitée'] }}",
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "rightValue": "Corriger"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Corriger soi-même"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Renvoyer au fournisseur"
+        }
+      },
+      "id": "54f03e3c-f3e9-4214-b279-b815fa284009",
+      "name": "Action choisie ?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "compta-demo@example.com",
+        "toEmail": "={{ $('Réception Mail (Factures)').first().json.from?.value?.[0]?.address }}",
+        "subject": "=Votre facture {{ $('Nettoyage & Controle').first().json.numero_facture || '' }} comporte une erreur - merci de bien vouloir la corriger",
+        "html": "=<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"background:#b91c1c;color:#ffffff;padding:16px 20px\"><h2 style=\"margin:0;font-size:18px\">Erreur détectée sur votre facture</h2><p style=\"margin:4px 0 0;font-size:13px;opacity:0.9\">SA Brunet — service comptabilité</p></div><div style=\"padding:20px;color:#111827;font-size:14px;line-height:1.5\"><p>Bonjour {{ $('Réception Mail (Factures)').first().json.from?.value?.[0]?.name || 'Madame, Monsieur' }},</p><p>Lors du traitement de votre facture, nous avons relevé une ou plusieurs anomalies qui nous empêchent de l'enregistrer en l'état. Merci de bien vouloir la corriger puis de nous la renvoyer.</p><table style=\"width:100%;border-collapse:collapse;margin:12px 0\"><tr><td style=\"padding:4px 0;color:#6b7280\">N° facture</td><td style=\"padding:4px 0;font-weight:bold\">{{ $('Nettoyage & Controle').first().json.numero_facture || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Date</td><td style=\"padding:4px 0\">{{ $('Nettoyage & Controle').first().json.date || '—' }}</td></tr><tr><td style=\"padding:4px 0;color:#6b7280\">Montant TTC</td><td style=\"padding:4px 0\">{{ $('Nettoyage & Controle').first().json.montant_ttc != null ? $('Nettoyage & Controle').first().json.montant_ttc + ' ' + ($('Nettoyage & Controle').first().json.devise || 'EUR') : '—' }}</td></tr></table><p style=\"margin:0 0 6px;font-weight:bold;color:#b91c1c\">Anomalie(s) relevée(s) :</p><ul style=\"margin:0 0 16px;padding-left:20px\">{{ ($('Nettoyage & Controle').first().json.alertes && $('Nettoyage & Controle').first().json.alertes.length ? $('Nettoyage & Controle').first().json.alertes : ['Anomalie détectée']).map(a => '<li>' + a + '</li>').join('') }}</ul><p>Nous vous remercions de nous retourner une facture corrigée dans les meilleurs délais.</p><p style=\"margin:16px 0 0\">Cordialement,<br>Service comptabilité — SA Brunet</p></div></div>",
+        "options": {
+          "appendAttribution": false,
+          "fileAttachments": ""
+        }
+      },
+      "id": "2bb982e8-9baa-4ec7-aca4-28d8a883b72c",
+      "name": "Mail au Fournisseur",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1536,
+        304
+      ],
+      "webhookId": "ec1c60a3-2abc-4d79-828f-90840a91ebdd",
+      "notes": "Renvoie automatiquement la facture au fournisseur (expéditeur d'origine) en reprenant les anomalies détectées. À CONFIGURER : vérifier le credential SMTP (même que les autres nœuds e-mail)."
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VOTRE_ID_DATATABLE",
+          "cachedResultName": "Journal_Factures"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "value": {
+            "decision": "RENVOI_FOURNISSEUR",
+            "statut": "renvoyee_au_fournisseur_pour_correction",
+            "fournisseur": "={{ $('Nettoyage & Controle').first().json.fournisseur }}",
+            "numero_facture": "={{ $('Nettoyage & Controle').first().json.numero_facture }}",
+            "montant_ttc": "={{ $('Nettoyage & Controle').first().json.montant_ttc }}",
+            "ecrit_dans_odoo": false,
+            "source": "systeme_renvoi_fournisseur",
+            "commentaire": "={{ ($('Nettoyage & Controle').first().json.alertes || []).join(' | ') }}",
+            "horodatage": "={{ $now.toISO() }}",
+            "rgpd": "Renvoi au fournisseur pour correction. Adresse de l'expéditeur traitée pour la saisie comptable interne (SA Brunet), accès restreint au service comptabilité."
+          },
+          "schema": [
+            {
+              "id": "decision",
+              "displayName": "decision",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "statut",
+              "displayName": "statut",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fournisseur",
+              "displayName": "fournisseur",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "numero_facture",
+              "displayName": "numero_facture",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "montant_ttc",
+              "displayName": "montant_ttc",
+              "type": "number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ecrit_dans_odoo",
+              "displayName": "ecrit_dans_odoo",
+              "type": "boolean",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "commentaire",
+              "displayName": "commentaire",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "horodatage",
+              "displayName": "horodatage",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rgpd",
+              "displayName": "rgpd",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "906c2e81-7ce0-4f26-9c01-66049626c663",
+      "name": "Persistance Journal - Renvoi",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        304
+      ],
+      "notes": "Trace l'envoi au fournisseur dans Journal_Factures (audit RGPD). Aucune écriture Odoo."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Claude Haiku 4.5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extraction des Données",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Réception Mail (Factures)": {
+      "main": [
+        [
+          {
+            "node": "Extraction PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraction des Données": {
+      "main": [
+        [
+          {
+            "node": "Nettoyage & Controle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alerte ?": {
+      "main": [
+        [
+          {
+            "node": "Créer facture - Odoo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mail pour Correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail pour Correction": {
+      "main": [
+        [
+          {
+            "node": "Attente de Réponse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attente de Réponse": {
+      "main": [
+        [
+          {
+            "node": "Modification Soumis ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modification Soumis ?": {
+      "main": [
+        [
+          {
+            "node": "Action choisie ?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Journal - Non écrit (délai 48h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Journal - Non écrit (délai 48h)": {
+      "main": [
+        [
+          {
+            "node": "Persistance Journal - Non écrit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nettoyage & Controle": {
+      "main": [
+        [
+          {
+            "node": "Alerte ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Délai 48h Dépassé": {
+      "main": [
+        []
+      ]
+    },
+    "Journal - Correction Validée": {
+      "main": [
+        [
+          {
+            "node": "Persistance Journal - Validée",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraction PDF": {
+      "main": [
+        [
+          {
+            "node": "Extraction des Données",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persistance Journal - Validée": {
+      "main": [
+        [
+          {
+            "node": "Créer facture - Odoo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persistance Journal - Non écrit": {
+      "main": [
+        [
+          {
+            "node": "Délai 48h Dépassé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail au Fournisseur": {
+      "main": [
+        [
+          {
+            "node": "Persistance Journal - Renvoi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action choisie ?": {
+      "main": [
+        [
+          {
+            "node": "Journal - Correction Validée",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mail au Fournisseur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "18007604-c10f-4338-8349-74ac0c100eb8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "93412c9f4805c07674f2e57e3b17fe94328e2eb888e437ab64bff5b2fffd3097"
+  },
+  "nodeGroups": [],
+  "id": "OXT8kgmmDcIKYGMv",
+  "tags": []
+}

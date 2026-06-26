@@ -1,0 +1,539 @@
+{
+  "name": "Cas Pratique - Relance Facture Client",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "8cd7849b-feeb-413c-a63c-298776fc0b75",
+      "name": "Déclencheur 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "1c8f8595-35c5-4637-8044-d668f8b276e8",
+      "name": "Anti Spam",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        -64
+      ],
+      "webhookId": "b3774e2f-c2ed-4870-a836-c44dfee4ddce"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "BDD Clients",
+          "cachedResultUrl": "https://airtable.com/appXXXXXXXXXXXXXX"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "BDD",
+          "cachedResultUrl": "https://airtable.com/appXXXXXXXXXXXXXX/tblXXXXXXXXXXXXXX"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('BDD Factures').item.json.id }}",
+            "RelancesEnvoyees": "={{ $('Normalisation & Controle').item.json.dateExecution }}",
+            "DerniereRelance": "={{ $('Normalisation & Controle').item.json.dateExecution }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "NumeroFacture",
+              "displayName": "NumeroFacture",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Client",
+              "displayName": "Client",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Mail",
+              "displayName": "Mail",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "MontantTTC",
+              "displayName": "MontantTTC",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DateFacture",
+              "displayName": "DateFacture",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "RelancesEnvoyees",
+              "displayName": "RelancesEnvoyees",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DerniereRelance",
+              "displayName": "DerniereRelance",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Payée",
+                  "value": "Payée"
+                },
+                {
+                  "name": "Impayée",
+                  "value": "Impayée"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "b8b5d8fb-a4c2-4925-acc8-4aae2227b0ec",
+      "name": "MAJ Relance",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        976,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "relances-demo@example.com",
+        "toEmail": "={{ $('BDD Factures').item.json.Mail }}",
+        "subject": "=Relance facture {{ $('BDD Factures').item.json.NumeroFacture }} - SA Brunet",
+        "emailFormat": "text",
+        "text": "={{ $('Rédaction Mail').item.json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0f9c8632-1b6d-4270-bfb6-3c3300281701",
+      "name": "Envoi Mail Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        784,
+        -64
+      ],
+      "webhookId": "362adbce-2d9c-449b-b436-5b4a7701b601"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Normalisation & Contrôle =====\n\n// --- CONFIG ---\nconst CHAMPS_CONTEXTE_REQUIS = ['Client', 'Mail', 'NumeroFacture', 'MontantTTC'];\n\n// Date d'exécution au format JJ-MM-AAAA\nconst dateExecution = new Date().toISOString().split('T')[0];\n// Résultat : \"2026-06-25\"\n\n// --- helpers ---\n\nfunction nettoyer(raw) {\n  if (raw == null) return '';\n  let t = String(raw).trim();\n  t = t.replace(/^```[a-zA-Z]*\\s*/, '');\n  t = t.replace(/```$/, '');\n  return t.trim();\n}\n\nfunction lireTexte(json) {\n  if (typeof json === 'string') return json;\n  if (json && typeof json.text === 'string') return json.text;\n  if (json && typeof json.output === 'string') return json.output;\n  return '';\n}\n\nfunction decouper(texte) {\n  const lignes = texte.split('\\n');\n  let objet = '';\n  let debutCorps = 0;\n\n  for (let i = 0; i < lignes.length; i++) {\n    const m = lignes[i].match(/^\\s*Objet\\s*:\\s*(.+)$/i);\n    if (m) {\n      objet = String(m[1]).trim(); // ✅ Correctif ici\n      debutCorps = i + 1;\n      break;\n    }\n  }\n  const corps = lignes.slice(debutCorps).join('\\n').trim();\n  return { objet, corps };\n}\n\n// --- traitement ---\nconst sortie = [];\n\nfor (const item of $input.all()) {\n  const f = item.json;\n\n  const texte = nettoyer(lireTexte(f));\n  const { objet, corps } = decouper(texte);\n\n  const erreurs = [];\n\n  if (!texte)  erreurs.push('Réponse LLM vide');\n  if (!objet)  erreurs.push('Objet manquant (ligne \"Objet :\" absente)');\n  if (!corps)  erreurs.push('Corps de l\\'e-mail vide');\n\n  for (const champ of CHAMPS_CONTEXTE_REQUIS) {\n    const v = f[champ];\n    if (v === undefined || v === null || String(v).trim() === '') {\n      erreurs.push(`Champ contexte vide : ${champ}`);\n    }\n  }\n\n  const controleOK = erreurs.length === 0;\n\n  const mailErreur = controleOK ? null : {\n    destinataire: 'interne',\n    objet: `[ALERTE] Relance non envoyée – facture ${f.NumeroFacture || 'inconnue'}`,\n    corps:\n      `Envoi bloqué par le contrôle automatique.\\n\\n` +\n      `Client : ${f.Client || 'N/A'}\\n` +\n      `Facture : ${f.NumeroFacture || 'N/A'}\\n` +\n      `Montant TTC : ${f.MontantTTC || 'N/A'}\\n\\n` +\n      `Erreurs détectées :\\n- ${erreurs.join('\\n- ')}\\n\\n` +\n      `Aucun e-mail n'a été adressé au client.`,\n  };\n\n  sortie.push({\n    json: {\n      ...f,\n      objet,\n      corps,\n      controleOK,\n      erreurs,\n      envoiAutorise: controleOK,\n      mailErreur,\n      dateExecution,\n    },\n  });\n}\n\nreturn sortie;"
+      },
+      "id": "83459329-5b17-40f4-a967-8a0534e72d3e",
+      "name": "Normalisation & Controle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tu es un assistant de recouvrement pour la SA Brunet (PME agroalimentaire francaise).\nRedige un e-mail de relance de facture impayee, en francais, professionnel et respectueux du droit.\nContexte:\n- Client (grande distribution): {{ $json.Client }}\n- Facture: {{ $json.NumeroFacture }}\n- Montant TTC du: {{ $json.MontantTTC }}€\n- Jours de retard:{{ $json.joursDepuisFacture }} \n- Niveau demande: {{ $json.prochainNiveau }} (1=rappel courtois, 2=relance ferme, 3=mise en demeure avant contentieux)\n- Ton attendu: {{ $json.ton }}\n- Relances deja envoyees: {{ $json.joursDepuisDerniere }}\nRegles:\n- Adapte le ton au niveau. Niveau 1: courtois, suppose un oubli. Niveau 2: ferme mais correct. Niveau 3: mise en demeure, mentionne d'eventuelles penalites de retard legales et un possible recouvrement, SANS menace illegale ni propos agressifs.\n- Mentionne precisement le numero de facture, le montant et le retard.\n- Ne chiffre AUCUN montant de penalite (le service compta le calcule).\n- N'invente aucune information non fournie.\n- Reponds UNIQUEMENT avec le corps de l'e-mail, sans preambule ni balises markdown.\n- Termine par une formule de politesse et la signature 'Service Comptabilite - SA Brunet'."
+      },
+      "id": "4667333a-8b3e-49a1-9f65-909c8fc62fd7",
+      "name": "Rédaction Mail",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        288,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-haiku-4.5",
+        "options": {}
+      },
+      "id": "a1586b18-e35c-4588-a8b8-72e3494ee0d9",
+      "name": "Claude Haiku 4.5",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        288,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.doitRelancer }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "03e81dc9-2bae-4c52-a179-49804006ac06"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.joursDepuisFacture }}",
+                    "rightValue": 90,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "24c1e882-2569-4ba4-9b73-5c6e97f091cf"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "escalade_humain"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d8aac12d-9634-449b-8aeb-1622411723c1",
+      "name": "Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -192,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "052503d9-f9f4-46d0-9a9c-6d7bb019c528",
+      "name": "Boucle Factures",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        48,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "relances@sa-brunet.fr",
+        "toEmail": "recouvrement@sa-brunet.fr",
+        "subject": "=ESCALADE recouvrement - facture {{ $json.numero_facture }} ({{ $json.jours_retard }} j de retard)",
+        "emailFormat": "text",
+        "text": "=La facture suivante a deja recu 3 relances et reste impayee.\n\nClient: {{ $json.client }}\nFacture: {{ $json.numero_facture }}\nMontant TTC: {{ $json.montant_ttc }} EUR\nRetard: {{ $json.jours_retard }} jours\nRelances envoyees: {{ $json.relances_envoyees }}\n\nAction manuelle requise (mise en demeure LRAR / contentieux).",
+        "options": {}
+      },
+      "id": "5792647c-1328-472a-9670-99b5d9d7ca99",
+      "name": "Alerte Interne Escalade",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        176
+      ],
+      "webhookId": "ca0cc2ac-407c-4d19-8c16-7c38e2984d69"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== Calcul Retards & Niveau =====\n\n// --- CONFIG (modifiable librement) ---\nconst JOURS_PREMIERE_RELANCE = 30;   // 1re relance : DateFacture + 30 j\nconst JOURS_ENTRE_RELANCES   = 10;   // suivantes : DerniereRelance + 10 j\nconst NIVEAU_ALERTE_INTERNE  = 4;    // à partir de ce niveau -> alerte interne\nconst STATUT_PAYEE           = 'Payée';\nconst TON_PAR_NIVEAU = { 1: 'courtois', 2: 'ferme', 3: 'mise en demeure' };\n\n// --- helpers ---\nfunction parseDate(v) {\n  if (!v) return null;\n  let d = new Date(v);                       // ISO (AAAA-MM-JJ) ou date Airtable\n  if (!isNaN(d)) return d;\n  const m = String(v).match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/); // fallback JJ/MM/AAAA\n  if (m) return new Date(`${m[3]}-${m[2]}-${m[1]}`);\n  return null;\n}\nfunction joursEntre(d1, d2) {\n  return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));\n}\n\nconst aujourdhui = new Date();\nconst sortie = [];\n\nfor (const item of $input.all()) {\n  const f = item.json;\n\n  const dateFacture      = parseDate(f.DateFacture);\n  const derniereRelance  = parseDate(f.DerniereRelance);\n  const relancesEnvoyees = Number(f.RelancesEnvoyees) || 0;\n  const statut           = (f.Statut || '').trim();\n\n  const prochainNiveau = relancesEnvoyees + 1;\n  const alerteInterne  = prochainNiveau >= NIVEAU_ALERTE_INTERNE;\n\n  const joursDepuisFacture  = dateFacture ? joursEntre(dateFacture, aujourdhui) : null;\n  const joursDepuisDerniere = derniereRelance ? joursEntre(derniereRelance, aujourdhui) : null;\n\n  let doitRelancer = false;\n  let raison = '';\n\n  if (statut === STATUT_PAYEE) {\n    raison = 'Facture payée';\n  } else if (!dateFacture) {\n    raison = 'DateFacture manquante ou illisible';\n  } else if (relancesEnvoyees === 0) {\n    if (joursDepuisFacture >= JOURS_PREMIERE_RELANCE) {\n      doitRelancer = true;\n      raison = `1re relance due (${joursDepuisFacture} j depuis facture)`;\n    } else {\n      raison = `Non échu (${joursDepuisFacture}/${JOURS_PREMIERE_RELANCE} j)`;\n    }\n  } else if (joursDepuisDerniere === null) {\n    raison = 'DerniereRelance manquante alors que RelancesEnvoyees > 0';\n  } else if (joursDepuisDerniere >= JOURS_ENTRE_RELANCES) {\n    doitRelancer = true;\n    raison = `Relance n°${prochainNiveau} due (${joursDepuisDerniere} j depuis dernière)`;\n  } else {\n    raison = `Délai non écoulé (${joursDepuisDerniere}/${JOURS_ENTRE_RELANCES} j)`;\n  }\n// Escalade manager si montant élevé (garde-fou WF2)\n  const montantTTC = Number(String(f.MontantTTC).replace(/[^\\d.,-]/g, '').replace(',', '.')) || 0;\n  const escaladeManager = montantTTC > 30000;\n  sortie.push({\n    json: {\n      ...f,\n      joursDepuisFacture,\n      joursDepuisDerniere,\n      prochainNiveau,\n      ton: TON_PAR_NIVEAU[prochainNiveau] || 'mise en demeure',\n      alerteInterne,\n      destinataire: alerteInterne ? 'interne' : 'client',\n      doitRelancer,\n      raison,\n    },\n  });\n}\n\nreturn sortie;"
+      },
+      "id": "92e702a1-5892-4d5c-b7b4-67392a08404a",
+      "name": "Calcul Retards & Niveau",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "BDD Clients",
+          "cachedResultUrl": "https://airtable.com/appXXXXXXXXXXXXXX"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "BDD",
+          "cachedResultUrl": "https://airtable.com/appXXXXXXXXXXXXXX/tblXXXXXXXXXXXXXX"
+        },
+        "options": {}
+      },
+      "id": "c53640bb-1f6f-40a1-9776-bd4eaab514d6",
+      "name": "BDD Factures",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        -64
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Déclencheur 9h": {
+      "main": [
+        [
+          {
+            "node": "BDD Factures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anti Spam": {
+      "main": [
+        [
+          {
+            "node": "Boucle Factures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MAJ Relance": {
+      "main": [
+        [
+          {
+            "node": "Anti Spam",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envoi Mail Client": {
+      "main": [
+        [
+          {
+            "node": "MAJ Relance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalisation & Controle": {
+      "main": [
+        [
+          {
+            "node": "Envoi Mail Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rédaction Mail": {
+      "main": [
+        [
+          {
+            "node": "Normalisation & Controle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Haiku 4.5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Rédaction Mail",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action": {
+      "main": [
+        [
+          {
+            "node": "Boucle Factures",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alerte Interne Escalade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Boucle Factures": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Rédaction Mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcul Retards & Niveau": {
+      "main": [
+        [
+          {
+            "node": "Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BDD Factures": {
+      "main": [
+        [
+          {
+            "node": "Calcul Retards & Niveau",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "86dd532d-a8d5-4d4d-ba36-637c88401bae",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "93412c9f4805c07674f2e57e3b17fe94328e2eb888e437ab64bff5b2fffd3097"
+  },
+  "nodeGroups": [],
+  "id": "NH6FOVj5Lq44sBhA",
+  "tags": []
+}
