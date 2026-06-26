@@ -10,15 +10,15 @@ Auteur : **Maxime Carrière**
 
 ## Ce que contient le dépôt
 
-- `facture-fournisseur.json` — workflow de saisie assistée des factures fournisseurs
-- `relance-client.json` — workflow de relance automatique des factures clients impayées
-- `README.md` — ce fichier
+- `facture-fournisseur.json` - workflow de saisie assistée des factures fournisseurs
+- `relance-client.json` - workflow de relance automatique des factures clients impayées
+- `README.md` - ce fichier
 
 Les deux fichiers sont des exports n8n importables tels quels (menu *Import from File*). Ce sont des versions de démonstration : données fictives, seuils visibles, aucun identifiant réel.
 
 ---
 
-## Workflow 1 — Facture fournisseur
+## Workflow 1 - Facture fournisseur
 
 Objectif : transformer une facture PDF reçue par mail en écriture comptable, sans saisie manuelle, et sans jamais écrire dans l'ERP sans validation humaine quand un doute existe.
 
